@@ -420,15 +420,21 @@ class DownloadService:
 
         try:
             with tempfile.TemporaryDirectory() as tempdir:
-
                 fn = self._client.download_media if isinstance(source, str) else self._bot.download_media
 
                 downloaded_path = await fn(message, tempdir, progress_callback=progress_callback)
                 if not downloaded_path or not os.path.exists(downloaded_path) or os.path.getsize(downloaded_path) == 0:
                     raise DownloadException(DownloadErrorCode.Unknown, "Download failed or created empty file")
 
-                # 拼接最终保存路径
-                file_path = os.path.join(storage_dir, os.path.basename(downloaded_path))
+                # fix: 修复媒体文件覆盖的问题（同一组或同一个相册的媒体其文件名可能是相同的）
+                # 原始文件路径可能重复，需加唯一标识
+                _, file_extension = os.path.splitext(downloaded_path)
+
+                # 使用媒体 ID 构造唯一的缓存 key
+                new_filename = f"{cache_key}{file_extension}"
+
+                # 最终文件路径避免覆盖
+                file_path = os.path.join(storage_dir, new_filename)
 
                 # 拷贝或移动文件
                 shutil.move(downloaded_path, file_path)
